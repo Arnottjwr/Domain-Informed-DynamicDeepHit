@@ -5,7 +5,9 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 import torch
-
+from torch.utils.data import DataLoader
+from ddh.ddh_torch import DynamicDeepHitTorch
+from ddh.losses_CRexp2 import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
 
 from utils import load_data, compute_brier_competing, discretize, _get_padded_features, zip_features
 
@@ -56,9 +58,22 @@ class DomainInformedModel:
         self.val_data, _ = zip_features(X_val_list, Y_val_discrete_np, D_val_list,device=self.device)
 
 
-
     def init_model(self):
-        pass
+        local_config = self.config['model']['architecture']
+        num_input_features = self.X_train_padded.size(2)
+        self.dynamic_deephit_model = DynamicDeepHitTorch(input_dim = num_input_features,
+                                                output_dim = self.output_num_durations,
+                                                layers_rnn = local_config['num_rnn_layers'],
+                                                hidden_rnn = local_config['num_hidden'],
+                                                long_param={'layers': layers_for_predicting_next_time_step,
+                                                            'dropout': dropout},
+                                                att_param={'layers': layers_for_attention,
+                                                        'dropout': dropout},
+                                                cs_param={'layers': layers_for_each_deephit_event,
+                                                        'dropout': dropout},
+                                                typ=rnn_type,
+                            risks=len(self.events)).to(self.device)
+        self.dynamic_deephit_loss = total_loss
 
     def train_and_validate(self):
         pass
