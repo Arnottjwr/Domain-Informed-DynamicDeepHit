@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
+import torch
 
 def load_data(file_name):
     """Load In results"""
@@ -54,6 +55,15 @@ def discretize(t, split, split_time=None):
     idx = [np.clip(i, 0, nbins - 1) for i in idx]
 
     return np.array(idx, dtype=object), edges
+
+def zip_features(X,Y,D, device):
+    X_padded = torch.from_numpy(_get_padded_features(X)).type(torch.float32).to(device)
+    last_Y_train = torch.tensor([_[-1] for _ in Y]).type(torch.float32).to(device)
+    D_train = torch.tensor([_[-1] for _ in D]).type(torch.float32).to(device)
+    data = list(zip(X_padded, last_Y_train, D_train))
+    return data, X_padded
+
+
 
 def _get_padded_features(x):
     """Helper function to pad variable length RNN inputs with nans."""
