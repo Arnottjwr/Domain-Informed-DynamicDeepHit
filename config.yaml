@@ -14,8 +14,7 @@ load_data:
     - UPCR
     - ACUR
   path: Data/TrainingData/SyntheticData/dummy_timeseries_data.csv
-experiment_parameters:
-  use_constraints: false
+
 model:
   layers_for_attention:
     - 8
@@ -31,6 +30,7 @@ model:
   dropout: 0.3
 
 loss:
+  use_constraints: false
   alpha: 0.01
   batch_size: 128
   beta: 0.01
@@ -71,6 +71,6 @@ results:
   plots: false
 
 experiements:
-  
+
 
 
