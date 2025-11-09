@@ -2,6 +2,9 @@ import json
 import numpy as np
 import pandas as pd
 import torch
+import lifelines
+from sksurv.util import Surv
+from sksurv.metrics import concordance_index_ipcw
 
 def load_data(file_name):
     """Load In results"""
@@ -119,3 +122,60 @@ def init_scheduler(optimiser, config):
             threshold_mode=config['threshold_mode'],
             min_lr= config['min_lr']
         )
+
+def compute_brier(Y_train_np, Y_test_np, D_train_np, D_test_np,\
+                   events, duration_grid_train_np, cif_test_np,\
+                    eval_duration_indices,duration_grid_test_np):
+        
+
+        censoring_kmf = lifelines.KaplanMeierFitter()
+        censoring_kmf.fit(Y_train_np, 1 * (D_train_np == 0))
+        brier_scores = {event:[] for event in events}
+
+        for event_idx_minus_one, event in enumerate(events):
+            for k, eval_duration_index in enumerate(eval_duration_indices):
+                eval_duration = duration_grid_test_np[eval_duration_index]
+
+                # find the training time grid's time point closest to the evaluation time
+                interp_time_index = np.argmin(np.abs(eval_duration - duration_grid_train_np))
+                cif_values_at_eval_duration_np = cif_test_np[event_idx_minus_one, interp_time_index, :].T
+                brier = compute_brier_competing(cif_values_at_eval_duration_np, censoring_kmf, Y_test_np, D_test_np, event_idx_minus_one + 1, eval_duration)
+
+                if k%5==0:
+                    print(f'Event "{event}" - eval time {eval_duration} - Brier score: {brier}')
+                brier_scores[event].append(brier)
+        return brier_scores
+
+def compute_cindex(Y_train_np, Y_test_np, D_train_np, D_test_np,\
+                   events, duration_grid_train_np, cif_test_np,\
+                    eval_duration_indices,duration_grid_test_np):
+    labels_train_sksurv = Surv.from_arrays(1*(D_train_np >= 1), Y_train_np)
+    concordance_scores = {event:[] for event in events }
+
+    for event_idx_minus_one, event in enumerate(events):
+        # convert test labels into the structured array format used by scikit-survival
+        try:
+            labels_test_sksurv = Surv.from_arrays(1*(D_test_np == (event_idx_minus_one + 1)), Y_test_np)
+        except:
+            concordance_scores[event].append(None)
+            break
+        for k, eval_duration_index in enumerate(eval_duration_indices):
+            eval_duration = duration_grid_test_np[eval_duration_index]
+
+            # find the training time grid's time point closest to the evaluation time
+            interp_time_index = np.argmin(np.abs(eval_duration - duration_grid_train_np))
+        
+            cif_values_at_eval_duration_np = cif_test_np[event_idx_minus_one, interp_time_index, :].T
+
+            concordance = concordance_index_ipcw(labels_train_sksurv, labels_test_sksurv, cif_values_at_eval_duration_np, tau=eval_duration)[0]
+
+            if k%5 == 0:
+                print(f'Event "{event}" - eval time {eval_duration} - truncated time-dependent concordance: {concordance}')
+            concordance_scores[event].append(concordance)
+
+    return concordance_scores
+
+def to_float(x):
+    if torch.is_tensor(x):
+        return x.detach().cpu().item()
+    return float(x)
