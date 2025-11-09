@@ -34,6 +34,7 @@ loss:
   alpha: 0.01
   batch_size: 128
   beta: 0.01
+  kappa: 0.1
   bound_dict:
     '2':
       - 1
