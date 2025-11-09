@@ -108,3 +108,14 @@ def subset_data(X, Y, D, N,seed):
     Y = [Y[i] for i in indicies]
     D = [D[i] for i in indicies]
     return X,Y,D
+
+def init_scheduler(optimiser, config):
+    return torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimiser,
+            mode = config['mode'],
+            factor=config['factor'],
+            patience=config['patience'],
+            threshold=config['threshold'],
+            threshold_mode=config['threshold_mode'],
+            min_lr= config['min_lr']
+        )
