@@ -59,20 +59,22 @@ class DomainInformedModel:
 
 
     def init_model(self):
-        local_config = self.config['model']['architecture']
+        model_config = self.config['model']
+        dropout = model_config['dropout']
         num_input_features = self.X_train_padded.size(2)
-        self.dynamic_deephit_model = DynamicDeepHitTorch(input_dim = num_input_features,
-                                                output_dim = self.output_num_durations,
-                                                layers_rnn = local_config['num_rnn_layers'],
-                                                hidden_rnn = local_config['num_hidden'],
-                                                long_param={'layers': layers_for_predicting_next_time_step,
-                                                            'dropout': dropout},
-                                                att_param={'layers': layers_for_attention,
+        self.dynamic_deephit_model = DynamicDeepHitTorch(
+                                            input_dim = num_input_features,
+                                            output_dim = self.output_num_durations,
+                                            layers_rnn = model_config['num_rnn_layers'],
+                                            hidden_rnn = model_config['num_hidden'],
+                                            long_param={'layers': model_config['layers_for_predicting_next_time_step'],
+                                                'dropout': dropout},
+                                            att_param={'layers': model_config['layers_for_attention'],
                                                         'dropout': dropout},
-                                                cs_param={'layers': layers_for_each_deephit_event,
+                                            cs_param={'layers': model_config['layers_for_each_deephit_event'],
                                                         'dropout': dropout},
-                                                typ=rnn_type,
-                            risks=len(self.events)).to(self.device)
+                                            typ=model_config['rnn_type'],
+                                            risks=len(self.events)).to(self.device)
         self.dynamic_deephit_loss = total_loss
 
     def train_and_validate(self):
