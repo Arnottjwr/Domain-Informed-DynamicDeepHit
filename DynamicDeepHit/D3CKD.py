@@ -1,15 +1,18 @@
 import json
 import yaml
+import os
+from datetime import datetime
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import DataLoader
 from ddh.ddh_torch import DynamicDeepHitTorch
-from ddh.losses_CRexp2 import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
+from ddh.loss import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
 
-from utils import load_data, compute_brier_competing, discretize, _get_padded_features, zip_features, init_scheduler
+from utils import discretize, _get_padded_features, zip_features, init_scheduler, to_float, compute_brier, compute_cindex
 
 
 class DomainInformedModel:
@@ -50,7 +53,7 @@ class DomainInformedModel:
         X_full_train_raw_list, self.X_test_list, Y_full_train_list, self.Y_test_list, D_full_train_list, self.D_test_list = train_test_split(X, Y, D, test_size=.3, random_state=0)
         X_train_list, X_val_list, self.Y_train_list, Y_val_list, self.D_train_list, D_val_list = train_test_split(X_full_train_raw_list, Y_full_train_list, D_full_train_list, test_size=.2, random_state=0)
 
-        Y_train_discrete_np, self.duration_grid_train_np = discretize(self.Y_train_list, {self.config["num_durations"]})
+        Y_train_discrete_np, self.duration_grid_train_np = discretize(self.Y_train_list, self.config["num_durations"])
         Y_val_discrete_np, _ = discretize(Y_val_list, len(self.duration_grid_train_np) - 1, self.duration_grid_train_np)
         self.output_num_durations = len(self.duration_grid_train_np)
 
@@ -92,31 +95,23 @@ class DomainInformedModel:
         optimiser = torch.optim.AdamW(self.dynamic_deephit_model.parameters(), lr=training_config['learning_rate'], weight_decay=1e-3)
         scheduler = init_scheduler(optimiser,self.config['lr_scheduler'])
 
-        best_val_loss = float('inf')
         best_val = float('inf')
         best_state = None
 
-        train_losses = {'l1':[],'l2':[],'l3':[], "dl1": [],"dl2": [], "dl3": []}
-        val_losses = {'l1':[], 'l2':[],'l3':[], "dl1": [],"dl2": [], "dl3": []}
+        self.train_losses = {'nll':[],'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
+        self.val_losses = {'nll':[], 'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
 
         for epoch in range(training_config['num_epochs']):
             # training_params['gamma'] = warmup_gammas(epoch,(cfg['gamma_1'],cfg['gamma_2'],cfg['gamma_3'], 0),warmup_epochs=25) ## TODO - implement this
             # ---- TRAIN ----
             self.dynamic_deephit_model.train()
             for Xb, Yb, Db in train_loader:
-                Xb = Xb.to(self.device)
-                # Yb, Db = Yb.to(device), Db.to(device)
+                Xb,Yb, Db = Xb.to(self.device), Yb.to(self.device), Db.to(self.device)
 
                 # Optional: schedule gamma via training_params['gamma'] here if you want warm-up
                 # training_params['gamma'] = scheduled_gammas(epoch)
 
-                train_loss_scalar = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
-                                                                for_selection=False,        # <— include domain in training loss
-                                                                include_rank_in_selection=True,
-                                                                compute_parts=True,
-                                                                detach_domain_from_trunk=False  # try True if domain hurts representation
-                                                            )
-
+                train_loss_scalar = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config)
                 optimiser.zero_grad(set_to_none=True)
                 train_loss_scalar.backward()
                 torch.nn.utils.clip_grad_norm_(self.dynamic_deephit_model.parameters(), max_norm=grad_clip)
@@ -126,11 +121,10 @@ class DomainInformedModel:
             self.dynamic_deephit_model.eval()
             with torch.no_grad():
                 # --- Train loss ---
-                tr_log, tr_n = {"l1":0,"l2":0,"l3":0,"dl1": 0,"dl2": 0, "dl3": 0}, 0
+                tr_log, tr_n = {"nll":0,"rank":0,"longit":0,"dl1": 0,"dl2": 0, "dl3": 0}, 0
                 for Xb, Yb, Db in train_loader:
                     Xb = Xb.to(self.device)
-                    parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
-                                                for_selection=False, compute_parts=True)
+                    parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config, eval_flag=True)
                     current_batch_size = Xb.size(0)
             
                     for k in tr_log: 
@@ -139,46 +133,35 @@ class DomainInformedModel:
 
                 for k in tr_log: 
                     tr_log[k] /= tr_n
-                    train_losses[k].append(tr_log[k])
-
-                
-
-
+                    self.train_losses[k].append(tr_log[k])
 
 
                 # ---Validation---
-                va_log, va_sel,va_dom, va_model, va_n = {"model":0,"domain":0,"longit":0,"rank":0,"nll":0,"total":0}, 0.0, 0.0, 0.0,0
+                va_log, va_n = {"nll":0,"rank":0,"longit":0, "dl1": 0,"dl2": 0, "dl3": 0}, 0
                 for Xb, Yb, Db in val_loader:
                     Xb = Xb.to(self.device)
                     # Compute once; we'll pick out the parts we want
-                    sel_loss, parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
-                                        for_selection=True, compute_parts=True)
-                    _, dom_parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
-                                                for_selection=False, compute_parts=True)
+                    va_parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config, eval_flag=True)
+                    current_batch_size = Xb.size(0)
 
-                    bs = Xb.size(0)
-                    va_sel += float(sel_loss) * bs
-                    va_dom += dom_parts['domain']*bs
-                    for k in va_log:
-                        va_log[k] += float(parts[k]) * bs
-                    va_n += bs
+                    for k in va_log: 
+                        va_log[k] += va_parts[k] * current_batch_size
+                    va_n += current_batch_size
 
-                va_sel/=va_n
-                va_dom/=va_n
-                for k in va_log:
+                for k in va_log: 
                     va_log[k] /= va_n
+                    self.val_losses[k].append(va_log[k])
 
+        
                 # Use ONLY NLL for early stopping / LR scheduling
                 val_nll = va_log["nll"]
-                val_nll_epoch_losses.append(val_nll)
-                val_epoch_losses.append(va_sel)
-                val_domain_losses.append(va_dom)
-                val_model_losses.append(va_log['model'])
+
             scheduler.step(val_nll)
             
-
-            print(f"[{epoch+1}] train_total={tr_log['total']:.4f} "
-                f"model_loss={tr_log['model']:.4f}  domain_loss={tr_log['domain']:.4f} "
+            tr_log_model = tr_log['nll'] + tr_log['rank'] + tr_log['longit']
+            tr_log_domain = tr_log['dl1'] + tr_log['dl2'] + tr_log['dl3']
+            print(f"[{epoch+1}] train_total={tr_log_model + tr_log_domain:.4f} "
+                f"model_loss={tr_log_model:.4f}  domain_loss={tr_log_domain:.4f} "
                 f"(nll={tr_log['nll']:.4f}, rank={tr_log['rank']:.4f}, longit={tr_log['longit']:.4f})")
 
             # checkpoint on validation selection metric ONLY
@@ -194,14 +177,77 @@ class DomainInformedModel:
 
 
     def run_evaluation_metrics(self):
-        pass
+        X_test_padded = torch.from_numpy(_get_padded_features(self.X_test_list)).type(torch.float32).to(self.device)
+
+        # Evaluate on Test Data
+        with torch.no_grad():
+            yhat, pmf_test = self.dynamic_deephit_model(X_test_padded)
+
+        cifs = []
+        for event_idx_minus_one in range(len(pmf_test)):
+            cifs.append(pmf_test[event_idx_minus_one].cumsum(1))
+        cif_test_np = np.array([cifs[event_idx_minus_one].cpu().numpy().T for event_idx_minus_one in range(len(self.events))])
+        cif_test_np = cif_test_np.tolist()
+        cif_test_np = np.array(cif_test_np)
+
+        Y_train_np = np.array([_[-1] for _ in self.Y_train_list])
+        D_train_np = np.array([_[-1] for _ in self.D_train_list])
+        Y_test_np = np.array([_[-1] for _ in self.Y_test_list])
+        D_test_np = np.array([_[-1] for _ in self.D_test_list])
+
+        # Loss Evaluation
+
+        t = torch.tensor(Y_test_np).long()
+        e = torch.tensor(D_test_np).int()
+        cif = [torch.cumsum(ok, dim=1) for ok in pmf_test]
+        longit_loss = longitudinal_loss(yhat, X_test_padded, kappa=self.config['loss']['kappa'])
+        rank_loss   = ranking_loss(cif, t, e,  1)
+        test_nll_loss    = negative_log_likelihood(pmf_test, cif, t, e)
+        test_total_loss = to_float(test_nll_loss) + to_float(rank_loss) + to_float(longit_loss)
+        test_nll_loss = to_float(test_nll_loss)
+
+
+        duration_grid_test_np = np.unique(Y_test_np)
+        eval_duration_indices = [int(p * len(duration_grid_test_np)) for p in [0.25,0.5,0.75]]
+
+
+        self.brier_scores = compute_brier(Y_train_np, Y_test_np, D_train_np, D_test_np,\
+                                self.events, self.duration_grid_train_np, cif_test_np,\
+                                    eval_duration_indices,duration_grid_test_np)
+        
+        self.cindex_scores = compute_cindex(Y_train_np, Y_test_np, D_train_np, D_test_np,\
+                                self.events, self.duration_grid_train_np, cif_test_np,\
+                                    eval_duration_indices,duration_grid_test_np)
 
     def store_results(self):
-        pass
+        date_time = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        newpath = rf'Data\\ExperiementalData\\{date_time}' 
+        if not os.path.exists(newpath):
+            os.makedirs(newpath)
+        if self.config['results']['plots']:
+            _, ax = plt.subplots()
+            plt.plot(model_losses, label='Model Loss')
+            plt.plot(domain_losses,'--', label='Domain Loss')
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('Loss')
+            ax.set_title('Model and Domain Loss')
+            ax.grid()
+            ax.legend()
+            plt.tight_layout()
+            plt.savefig(f'{newpath}/Loss_plot_run.png')
+        ## TODO - plot brier scores
+        ## TODO - plot cindex scores
+        ## TODO - save config yaml
+
+
 
 
 
 
     def main(self):
         """Main call function"""
-        print(self.config)
+        self.load_data()
+        self.init_model()
+        self.train_and_validate()
+        self.run_evaluation_metrics()
+        self.store_results()
