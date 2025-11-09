@@ -4,7 +4,7 @@ This file is by Vincent Jeanselme and was downloaded from:
 '''
 import torch
 import torch.nn.functional as F
-from D3CKD import DomainInformedModel
+from ddh_torch import DynamicDeepHitTorch
 
 def negative_log_likelihood(outcomes, cif, t, e):
     """
@@ -212,12 +212,7 @@ def domain_loss_4(longitudinal_prediction, x,option = 1):
     return torch.tensor(0.0, dtype=torch.float, device=device)
 
 def total_loss(
-    model:DomainInformedModel, x, t, e, training_params,
-    eval: bool,
-    for_selection: bool = False,     # if True, exclude domain losses from the returned scalar
-    include_rank_in_selection: bool = True,  # set False if you want NLL-only selection
-    detach_domain_from_trunk: bool = False   # optional: stop domain grads hitting shared trunk
-):
+    model:DynamicDeepHitTorch, x, t, e, training_params:dict, eval_flag: bool = False) -> float | dict:
     """
     Returns (loss_scalar, parts_dict) if compute_parts else (loss_scalar, None).
     'loss_scalar' is:
@@ -259,28 +254,27 @@ def total_loss(
 
 
     if not use_constraints:
-        if not eval:
+        if not eval_flag:
             return model_loss
-        return {"l1" : longit_loss, 
-                "l2" : rank_loss,
-                "l3" : nll_loss}
+        return {"nll" : nll_loss, 
+                "rank" : rank_loss,
+                "longit" : longit_loss}
 
-    else:
-        dl1, _ = domain_loss_1(longitudinal_prediction, x)
-        dl2, _ = domain_loss_2(longitudinal_prediction, bound_dict)
-        dl3, _ = domain_loss_3(longitudinal_prediction, bound_dict)
-        domain_loss = gamma_1 * dl1 + gamma_2 * dl2 + gamma_3 * dl3
-        if not eval:
-            return model_loss + domain_loss
-        
-        return {
-                "l1" : longit_loss, 
-                "l2" : rank_loss,
-                "l3" : nll_loss,
-                "dl1": dl1,
-                "dl2": dl2,
-                "dl3": dl3,
-                }
+    dl1, _ = domain_loss_1(longitudinal_prediction, x)
+    dl2, _ = domain_loss_2(longitudinal_prediction, bound_dict)
+    dl3, _ = domain_loss_3(longitudinal_prediction, bound_dict)
+    domain_loss = gamma_1 * dl1 + gamma_2 * dl2 + gamma_3 * dl3
+    if not eval_flag:
+        return model_loss + domain_loss
+    
+    return {
+            "nll" : nll_loss, 
+            "rank" : rank_loss,
+            "longit" : longit_loss,
+            "dl1": dl1,
+            "dl2": dl2,
+            "dl3": dl3,
+            }
     
     
 
