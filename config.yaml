@@ -1,8 +1,9 @@
+---
 events:
   - death
-
 num_durations: 256
-
+cuda: cuda:3
+seed: None
 load_data:
   features_before_preprocessing:
     - gender
@@ -13,50 +14,63 @@ load_data:
     - UPCR
     - ACUR
   path: Data/TrainingData/SyntheticData/dummy_timeseries_data.csv
-
-discretise_grid: {}
-
 experiment_parameters:
   use_constraints: false
-
-misc:
-  cuda: cuda:3
-  seed: None
-
 model:
-  architecture:
-    layers_for_attention:
-      - 8
-      - 8
-    layers_for_each_deephit_event:
-      - 8
-    layers_for_predicting_next_time_step:
-      - 32
-      - 32
-    num_hidden: 8
-    num_rnn_layers: 8
-    rnn_type: LSTM
-  loss:
-    alpha: 0.01
-    batch_size: 128
-    beta: 0.01
-    bound_dict:
-      '2':
-        - 1
-        - 2
-      '3':
-        - 3
-        - 4
-      '4':
-        - 1
-        - 4
-    gamma:
-      - 0
-      - 0
-      - 0
-    sigma: 0.01
-  training:
-    dropout: 0.3
-    learning_rate: 0.0001
-    num_durations: 128
-    num_epochs: 100
+  layers_for_attention:
+    - 8
+    - 8
+  layers_for_each_deephit_event:
+    - 8
+  layers_for_predicting_next_time_step:
+    - 32
+    - 32
+  num_hidden: 8
+  num_rnn_layers: 8
+  rnn_type: LSTM
+  dropout: 0.3
+
+loss:
+  alpha: 0.01
+  batch_size: 128
+  beta: 0.01
+  bound_dict:
+    '2':
+      - 1
+      - 2
+    '3':
+      - 3
+      - 4
+    '4':
+      - 1
+      - 4
+  gamma:
+    - 0
+    - 0
+    - 0
+  sigma: 0.01
+
+training:
+  learning_rate: 0.0001
+  num_durations: 128
+  num_epochs: 100
+  batch_size: 64
+  grad_clip: 0.9034919529397347
+  weight_decay: 1e-3
+
+lr_scheduler:
+  mode: min    
+  factor: 0.5    
+  patience: 8
+  threshold: 1e-3
+  threshold_mode: abs
+  min_lr: 3e-5
+
+results:
+  verbose: true
+  plots: false
+
+experiements:
+  
+
+
