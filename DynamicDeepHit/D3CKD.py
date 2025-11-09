@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from ddh.ddh_torch import DynamicDeepHitTorch
 from ddh.losses_CRexp2 import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
 
-from utils import load_data, compute_brier_competing, discretize, _get_padded_features, zip_features
+from utils import load_data, compute_brier_competing, discretize, _get_padded_features, zip_features, init_scheduler
 
 
 class DomainInformedModel:
@@ -78,7 +78,122 @@ class DomainInformedModel:
         self.dynamic_deephit_loss = total_loss
 
     def train_and_validate(self):
-        pass
+        """Train the model"""
+        training_config = self.config['training']
+        batch_size = training_config['batch_size']
+        grad_clip = training_config['grad_clip']
+        loss_config = self.config['loss']
+
+
+
+        train_loader = DataLoader(self.train_data, batch_size, shuffle=True)  # shuffling for minibatch gradient descent
+        val_loader = DataLoader(self.val_data, batch_size, shuffle=False)  # there is no need to shuffle the validation data
+        optimiser = torch.optim.AdamW(self.dynamic_deephit_model.parameters(), lr=training_config['learning_rate'], weight_decay=1e-3)
+        scheduler = init_scheduler(optimiser,self.config['lr_scheduler'])
+
+        best_val_loss = float('inf')
+        best_val = float('inf')
+        best_state = None
+
+        train_losses = {'l1':[],'l2':[],'l3':[]}
+        val_losses = {'l1':[], 'l2':[],'l3':[]}
+
+        for epoch in range(training_config['num_epochs']):
+            # training_params['gamma'] = warmup_gammas(epoch,(cfg['gamma_1'],cfg['gamma_2'],cfg['gamma_3'], 0),warmup_epochs=25) ## TODO - implement this
+            # ---- TRAIN ----
+            self.dynamic_deephit_model.train()
+            for Xb, Yb, Db in train_loader:
+                Xb = Xb.to(self.device)
+                # Move Yb/Db to device if your loss expects it on GPU
+                # Yb, Db = Yb.to(device), Db.to(device)
+
+                # Optional: schedule gamma via training_params['gamma'] here if you want warm-up
+                # training_params['gamma'] = scheduled_gammas(epoch)
+
+                (train_loss_scalar, train_parts) = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
+                                                                for_selection=False,        # <— include domain in training loss
+                                                                include_rank_in_selection=True,
+                                                                compute_parts=True,
+                                                                detach_domain_from_trunk=False  # try True if domain hurts representation
+                                                            )
+
+                optimiser.zero_grad(set_to_none=True)
+                train_loss_scalar.backward()
+                torch.nn.utils.clip_grad_norm_(self.dynamic_deephit_model.parameters(), max_norm=grad_clip)
+                optimiser.step()
+
+            # ---- EVAL ----
+            self.dynamic_deephit_model.eval()
+            with torch.no_grad():
+                # --- Train loss ---
+                tr_log, tr_n = {"model":0,"domain":0,"longit":0,"rank":0,"nll":0,"total":0}, 0
+                for Xb, Yb, Db in train_loader:
+                    Xb = Xb.to(self.device)
+                    loss_val, parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
+                                                for_selection=False, compute_parts=True)
+                    current_batch_size = Xb.size(0)
+            
+                    for k in tr_log: 
+                        tr_log[k] += parts[k] * current_batch_size
+                    tr_n += current_batch_size
+
+                for k in tr_log: 
+                    tr_log[k] /= tr_n
+
+                
+                train_epoch_losses.append(tr_log['total'])
+                train_model_losses.append(tr_log['model'])
+                train_domain_losses.append(tr_log['domain'])
+
+
+
+
+                # ---Validation---
+                va_log, va_sel,va_dom, va_model, va_n = {"model":0,"domain":0,"longit":0,"rank":0,"nll":0,"total":0}, 0.0, 0.0, 0.0,0
+                for Xb, Yb, Db in val_loader:
+                    Xb = Xb.to(self.device)
+                    # Compute once; we'll pick out the parts we want
+                    sel_loss, parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
+                                        for_selection=True, compute_parts=True)
+                    _, dom_parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
+                                                for_selection=False, compute_parts=True)
+
+                    bs = Xb.size(0)
+                    va_sel += float(sel_loss) * bs
+                    va_dom += dom_parts['domain']*bs
+                    for k in va_log:
+                        va_log[k] += float(parts[k]) * bs
+                    va_n += bs
+
+                va_sel/=va_n
+                va_dom/=va_n
+                for k in va_log:
+                    va_log[k] /= va_n
+
+                # Use ONLY NLL for early stopping / LR scheduling
+                val_nll = va_log["nll"]
+                val_nll_epoch_losses.append(val_nll)
+                val_epoch_losses.append(va_sel)
+                val_domain_losses.append(va_dom)
+                val_model_losses.append(va_log['model'])
+            scheduler.step(val_nll)
+            
+
+            print(f"[{epoch+1}] train_total={tr_log['total']:.4f} "
+                f"model_loss={tr_log['model']:.4f}  domain_loss={tr_log['domain']:.4f} "
+                f"(nll={tr_log['nll']:.4f}, rank={tr_log['rank']:.4f}, longit={tr_log['longit']:.4f})")
+
+            # checkpoint on validation selection metric ONLY
+            if val_nll < best_val:
+                best_val = val_nll
+                best_state = {k: v.detach().cpu().clone() for k, v in self.dynamic_deephit_model.state_dict().items()}
+
+
+        if best_state is not None:
+            self.dynamic_deephit_model.load_state_dict(best_state)
+
+
+
 
     def run_evaluation_metrics(self):
         pass
@@ -91,4 +206,4 @@ class DomainInformedModel:
 
     def main(self):
         """Main call function"""
-        self.load_data()
+        print(self.config)
