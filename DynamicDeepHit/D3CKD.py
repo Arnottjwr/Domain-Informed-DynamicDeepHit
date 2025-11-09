@@ -82,8 +82,9 @@ class DomainInformedModel:
         training_config = self.config['training']
         batch_size = training_config['batch_size']
         grad_clip = training_config['grad_clip']
-        loss_config = self.config['loss']
 
+        loss_config = self.config['loss']
+        self.use_constraints = loss_config['use_constraints']
 
 
         train_loader = DataLoader(self.train_data, batch_size, shuffle=True)  # shuffling for minibatch gradient descent
@@ -95,8 +96,8 @@ class DomainInformedModel:
         best_val = float('inf')
         best_state = None
 
-        train_losses = {'l1':[],'l2':[],'l3':[]}
-        val_losses = {'l1':[], 'l2':[],'l3':[]}
+        train_losses = {'l1':[],'l2':[],'l3':[], "dl1": [],"dl2": [], "dl3": []}
+        val_losses = {'l1':[], 'l2':[],'l3':[], "dl1": [],"dl2": [], "dl3": []}
 
         for epoch in range(training_config['num_epochs']):
             # training_params['gamma'] = warmup_gammas(epoch,(cfg['gamma_1'],cfg['gamma_2'],cfg['gamma_3'], 0),warmup_epochs=25) ## TODO - implement this
@@ -104,13 +105,12 @@ class DomainInformedModel:
             self.dynamic_deephit_model.train()
             for Xb, Yb, Db in train_loader:
                 Xb = Xb.to(self.device)
-                # Move Yb/Db to device if your loss expects it on GPU
                 # Yb, Db = Yb.to(device), Db.to(device)
 
                 # Optional: schedule gamma via training_params['gamma'] here if you want warm-up
                 # training_params['gamma'] = scheduled_gammas(epoch)
 
-                (train_loss_scalar, train_parts) = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
+                train_loss_scalar = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
                                                                 for_selection=False,        # <— include domain in training loss
                                                                 include_rank_in_selection=True,
                                                                 compute_parts=True,
@@ -126,10 +126,10 @@ class DomainInformedModel:
             self.dynamic_deephit_model.eval()
             with torch.no_grad():
                 # --- Train loss ---
-                tr_log, tr_n = {"model":0,"domain":0,"longit":0,"rank":0,"nll":0,"total":0}, 0
+                tr_log, tr_n = {"l1":0,"l2":0,"l3":0,"dl1": 0,"dl2": 0, "dl3": 0}, 0
                 for Xb, Yb, Db in train_loader:
                     Xb = Xb.to(self.device)
-                    loss_val, parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
+                    parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config,
                                                 for_selection=False, compute_parts=True)
                     current_batch_size = Xb.size(0)
             
@@ -139,11 +139,9 @@ class DomainInformedModel:
 
                 for k in tr_log: 
                     tr_log[k] /= tr_n
+                    train_losses[k].append(tr_log[k])
 
                 
-                train_epoch_losses.append(tr_log['total'])
-                train_model_losses.append(tr_log['model'])
-                train_domain_losses.append(tr_log['domain'])
 
 
 
