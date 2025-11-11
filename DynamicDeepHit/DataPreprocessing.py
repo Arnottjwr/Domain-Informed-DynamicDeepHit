@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 import torch
-from utils import discretize, _get_padded_features, zip_features
+
+from .utils import discretize, _get_padded_features, zip_features
 
 class DataPreprocessor:
 
