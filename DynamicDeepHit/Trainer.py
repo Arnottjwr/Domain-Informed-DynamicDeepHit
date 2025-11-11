@@ -1,20 +1,12 @@
-import json
 import yaml
-import os
-from datetime import datetime
-
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import DataLoader
-from ddh.ddh_torch import DynamicDeepHitTorch
-from ddh.loss import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
 
+from .ddh.ddh_torch import DynamicDeepHitTorch
+from .ddh.loss import total_loss
 
 class Trainer:
-
     def __init__(self, 
                  train_data,
                  X_train_padded,
@@ -61,7 +53,7 @@ class Trainer:
         train_loader = DataLoader(self.train_data, batch_size, shuffle=True)  # shuffling for minibatch gradient descent
         val_loader = DataLoader(self.val_data, batch_size, shuffle=False)  # there is no need to shuffle the validation data
         optimiser = torch.optim.AdamW(self.dynamic_deephit_model.parameters(), lr=training_config['learning_rate'], weight_decay=1e-3)
-        scheduler = init_scheduler(optimiser, self.config['lr_scheduler'])
+        scheduler = self.init_scheduler(optimiser, self.config['lr_scheduler'])
 
         best_val = float('inf')
         best_state = None
@@ -142,8 +134,7 @@ class Trainer:
 
         return self.dynamic_deephit_model
 
-    @staticmethod
-    def init_scheduler(optimiser, config):
+    def init_scheduler(self, optimiser, config):
         return torch.optim.lr_scheduler.ReduceLROnPlateau(
                 optimiser,
                 mode = config['mode'],
