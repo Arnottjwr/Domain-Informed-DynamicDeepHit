@@ -4,3 +4,4 @@ __pycache__
 DynamicDeepHit/__pycache__/utils.cpython-312.pyc
 DynamicDeepHit/ddh/__pycache__/__init__.cpython-312.pyc
 DynamicDeepHit/ddh/__pycache__/ddh_torch.cpython-312.pyc
+.DS_Store
