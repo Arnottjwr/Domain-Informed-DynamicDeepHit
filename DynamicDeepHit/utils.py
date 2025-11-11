@@ -112,16 +112,6 @@ def subset_data(X, Y, D, N,seed):
     D = [D[i] for i in indicies]
     return X,Y,D
 
-def init_scheduler(optimiser, config):
-    return torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimiser,
-            mode = config['mode'],
-            factor=config['factor'],
-            patience=config['patience'],
-            threshold=config['threshold'],
-            threshold_mode=config['threshold_mode'],
-            min_lr= config['min_lr']
-        )
 
 def compute_brier(Y_train_np, Y_test_np, D_train_np, D_test_np,\
                    events, duration_grid_train_np, cif_test_np,\
