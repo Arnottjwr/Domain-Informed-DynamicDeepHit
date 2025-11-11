@@ -1,6 +1,6 @@
-from DataPreprocessing import DataPreprocessor
-from Trainer import Trainer
-from Evaluation import Evaluation
+from DynamicDeepHit.DataPreprocessing import DataPreprocessor
+from DynamicDeepHit.Trainer import Trainer
+from DynamicDeepHit.Evaluation import Evaluation
 
 
 if __name__ == '__main__':
