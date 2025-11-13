@@ -3,7 +3,7 @@ events:
   - death
 num_durations: 256
 cuda: cuda:3
-seed: None
+seed: 1111 # null for random seed
 load_data:
   features_before_preprocessing:
     - gender
@@ -32,7 +32,7 @@ model:
 loss:
   use_constraints: false
   alpha: 0.01
-  batch_size: 128
+  delta: 0.05
   beta: 0.01
   kappa: 0.1
   bound_dict:
