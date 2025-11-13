@@ -1,12 +1,17 @@
+## TODO - make functionality to access and compare other data - have the rest of the code working 
+## TODO - Combine train and val loss plots (Obvs)
+## TODO - make plotting loop for events - brier and cindex scores should be returned as dicts with events as keys
+## TODO - need to plot 3 base loss functions, plus 3 domain loss functions, and the total 
+## TODO - save loss and survival values in a json - figure out how to solve json problem
 import os
 from datetime import datetime
-
+import json
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
-from .loss import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
+from .loss import ranking_loss,longitudinal_loss, negative_log_likelihood
 from .utils import to_float, compute_brier, compute_cindex
 
 class Evaluation:
@@ -117,41 +122,53 @@ class Evaluation:
         ax.grid()
         ax.legend()
         plt.tight_layout()
-        plt.savefig(f'{newpath}/Loss_plot_run.png')
-        #---------------------------------------------------------#
-        # fig, ax = plt.subplots()
-        # plt.plot(concordance_scores['death'], label='CKD')
-        # plt.plot(base_cindex,'--', label='DDH')
-        # ax.set_xlabel('horizon')
-        # ax.set_ylabel('score')
-        # ax.set_title('Cindex')
-        # ax.grid()
-        # ax.legend()
-        # plt.tight_layout()
-        # plt.savefig(f'/home/arnott/git/CKD-JA-MMSc-1/Results/cindex_eGFR/cindex_plots/Run_{run}_{j}.png')
-        # # with open(f'/home/arnott/git/CKD-JA-MMSc-1/Results/cindex_eGFR/cindex_cfg/Config_run_{run}_{j}.json', "w") as f:
-        # #     cfg['cindex'] = concordance_scores['death']
-        # #     json.dump(cfg, f, indent=2)
-        # ## TODO - save config yaml
-        # #---------------------------------------------------------#
-        # fig, ax = plt.subplots()
-        # plt.plot(concordance_scores['death'], label='CKD')
-        # plt.plot(base_cindex,'--', label='DDH')
-        # ax.set_xlabel('horizon')
-        # ax.set_ylabel('score')
-        # ax.set_title('Cindex')
-        # ax.grid()
-        # ax.legend()
-        # plt.tight_layout()
-        # plt.savefig(f'/home/arnott/git/CKD-JA-MMSc-1/Results/cindex_eGFR/cindex_plots/Run_{run}_{j}.png')
+        plt.savefig(f'/home/arnott/git/CKD-JA-MMSc-1/Results/cindex_eGFR/cindex_plots/Run_{run}_{j}.png')
+    
+    def save_loss_plots(self, path):
+        """Main Loss Plotting Function"""
+        self.plot_losses({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, path)
+        self.plot_total_loss({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, path)
+    
+    
+    def store_results(self, train_losses, val_losses, brier_scores = None, cindex_scores = None):
+        date_time = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
+        self.base_path = f'Data/ExperimentalData/{date_time}'
+        plot_path = f'{self.base_path}/Plots'
+        data_path = f'{self.base_path}/Data'
+        if not os.path.exists(self.base_path):
+            os.makedirs(self.base_path)
+            os.makedirs(plot_path)
+            os.makedirs(data_path)
+        # Loss Plots
+        self.save_loss_plots(plot_path)
+
         
+        # Evaluation Data
+        data = {}
+        data['training_loss'] = np.array(self.train_losses).tolist()
+        data['validation_loss'] = np.array(self.val_losses).tolist()
+        # with open(f'{data_path}/experiment_data.json', 'w') as f:
+        #     json.dump(data, f, indent=4)
+    
+        with open(f'{data_path}/experiment_config.json', 'w') as f:
+            json.dump(self.config, f, indent=4)
 
     def main(self):
         """Main Call"""
+        print('\nSaving Data...')
+
+        # Compute Test Metrics
         self.compute_cifs()
         # brier_scores = self.compute_brier_scores()
         # cindex_scores = self.compute_cindex_scores()
         brier_scores = 0
         cindex_scores = 0
+        
+        # Save Results
         if self.config['results']['save_results']:
+            # Plots
             self.store_results(self.train_losses, self.val_losses)
+            print(f'\nData Saved under {self.base_path}')
+            
+            
+            
