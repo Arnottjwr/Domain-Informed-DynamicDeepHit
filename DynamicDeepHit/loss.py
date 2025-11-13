@@ -248,17 +248,17 @@ def total_loss(
     # ensure non-negative combination weights
     model_loss = delta * longit_loss + alpha * rank_loss + beta * nll_loss
 
-    # Domain losses (compute only if needed)
-    domain_loss = 0.0
-    dl1 = dl2 = dl3 = 0.0
-
-
     if not use_constraints:
         if not eval_flag:
             return model_loss
-        return {"nll" : nll_loss, 
-                "rank" : rank_loss,
-                "longit" : longit_loss}
+        return {
+            "nll" : nll_loss, 
+            "rank" : rank_loss,
+            "longit" : longit_loss,
+            "dl1": 0,
+            "dl2": 0,
+            "dl3": 0,
+            }
 
     dl1, _ = domain_loss_1(longitudinal_prediction, x)
     dl2, _ = domain_loss_2(longitudinal_prediction, bound_dict)
