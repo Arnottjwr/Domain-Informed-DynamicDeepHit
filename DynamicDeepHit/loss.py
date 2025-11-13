@@ -4,7 +4,7 @@ This file is by Vincent Jeanselme and was downloaded from:
 '''
 import torch
 import torch.nn.functional as F
-from ddh_torch import DynamicDeepHitTorch
+from DynamicDeepHit.ddh_torch import DynamicDeepHitTorch
 
 def negative_log_likelihood(outcomes, cif, t, e):
     """
@@ -229,7 +229,7 @@ def total_loss(
     delta = training_params['delta']
     sigma = training_params['sigma']
     kappa = training_params['kappa']
-    gamma_1, gamma_2, gamma_3, gamma_4 = training_params['gamma']
+    gamma_1, gamma_2, gamma_3 = training_params['gamma']
     bound_dict = training_params['bound_dict']
     use_constraints = training_params.get('use_constraints', False)
 

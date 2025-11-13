@@ -1,14 +1,13 @@
 '''
 This file was originally by Vincent Jeanselme:
 
-    https://github.com/Jeanselme/DynamicDeepHit/blob/0c160824d37d6f5758e7b65d8e566aefac0901e9/ddh/ddh_torch.py
+	https://github.com/Jeanselme/DynamicDeepHit/blob/0c160824d37d6f5758e7b65d8e566aefac0901e9/ddh/ddh_torch.py
 
-Minor edits have been made by George H. Chen (see below for comments with the initials "GHC")
+- Minor edits have been made by George H. Chen (see below for comments with the initials "GHC")
+- Further edits were made by Jack Arnott
 '''
 import torch.nn as nn
 import torch
-import numpy as np
-# from .utils import create_nn  # commented out by GHC (instead the entire function has been copied over)
 
 class DynamicDeepHitTorch(nn.Module):
 
