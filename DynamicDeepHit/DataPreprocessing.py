@@ -20,7 +20,8 @@ class DataPreprocessor:
 
     def sort_data(self):
         """Sort Data into Observations, Times and Outcomes"""
-        features = self.df[self.data_config['features_before_preprocessing']].to_numpy().astype('float32')    
+        self.df['gender'] = np.where(self.df['gender']=='F',1,0) # female = 1, male = 0
+        features = self.df[self.data_config['features_before_preprocessing']].to_numpy()#.astype('float32')
         observed_times = (self.df['years'] - self.df['year']).to_numpy().astype('float32') # Calculate Time to Events
         event_indicators = self.df['event'].map({event:i+1 for i, event in enumerate(self.config['events'])}).fillna(0).astype('int32').to_numpy() ##TODO - Test this
         X, Y, D = [], [], []
