@@ -1,4 +1,4 @@
-import yaml
+from ruamel.yaml import YAML
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -17,9 +17,9 @@ class Trainer:
         self.device = device
         self.train_data = train_data
         self.val_data = val_data
-        
+
         with open('config.yaml') as yaml_data:
-            self.config = yaml.safe_load(yaml_data)
+            self.config = YAML(typ='rt').load(yaml_data)
 
         np.random.seed(self.config['seed'])
         model_config = self.config['model']
@@ -39,6 +39,8 @@ class Trainer:
                                             typ=model_config['rnn_type'],
                                             risks=len(self.config['events'])).to(self.device)
         self.dynamic_deephit_loss = total_loss
+        self.train_losses = {'nll':[],'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
+        self.val_losses = {'nll':[], 'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
 
     def train_and_validate(self):
         """Train the model"""
@@ -58,8 +60,6 @@ class Trainer:
         best_val = float('inf')
         best_state = None
 
-        self.train_losses = {'nll':[],'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
-        self.val_losses = {'nll':[], 'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
 
         for epoch in range(training_config['num_epochs']):
             # training_params['gamma'] = warmup_gammas(epoch,(cfg['gamma_1'],cfg['gamma_2'],cfg['gamma_3'], 0),warmup_epochs=25) ## TODO - implement this
@@ -83,10 +83,10 @@ class Trainer:
                 # --- Train loss ---
                 tr_log, tr_n = {"nll":0,"rank":0,"longit":0,"dl1": 0,"dl2": 0, "dl3": 0}, 0
                 for Xb, Yb, Db in train_loader:
-                    Xb = Xb.to(self.device)
+                    Xb,Yb, Db = Xb.to(self.device), Yb.to(self.device), Db.to(self.device)
                     parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config, eval_flag=True)
                     current_batch_size = Xb.size(0)
-            
+
                     for k in tr_log: 
                         tr_log[k] += parts[k] * current_batch_size
                     tr_n += current_batch_size
@@ -99,7 +99,7 @@ class Trainer:
                 # ---Validation---
                 va_log, va_n = {"nll":0,"rank":0,"longit":0, "dl1": 0,"dl2": 0, "dl3": 0}, 0
                 for Xb, Yb, Db in val_loader:
-                    Xb = Xb.to(self.device)
+                    Xb,Yb, Db = Xb.to(self.device), Yb.to(self.device), Db.to(self.device)
                     # Compute once; we'll pick out the parts we want
                     va_parts = total_loss(self.dynamic_deephit_model, Xb, Yb, Db, loss_config, eval_flag=True)
                     current_batch_size = Xb.size(0)
@@ -115,7 +115,6 @@ class Trainer:
         
                 # Use ONLY NLL for early stopping / LR scheduling
                 val_nll = va_log["nll"]
-
             scheduler.step(val_nll)
             
             tr_log_model = tr_log['nll'] + tr_log['rank'] + tr_log['longit']
@@ -135,6 +134,7 @@ class Trainer:
         return self.dynamic_deephit_model
 
     def init_scheduler(self, optimiser, config):
+        print(config['threshold'], type(config['threshold']))
         return torch.optim.lr_scheduler.ReduceLROnPlateau(
                 optimiser,
                 mode = config['mode'],
@@ -144,8 +144,3 @@ class Trainer:
                 threshold_mode=config['threshold_mode'],
                 min_lr= config['min_lr']
             )
-
-
-    def main(self):
-        """Main call function"""
-        pass
