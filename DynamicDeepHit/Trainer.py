@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from .ddh.ddh_torch import DynamicDeepHitTorch
-from .ddh.loss import total_loss
+from .ddh_torch import DynamicDeepHitTorch
+from .loss import total_loss
 
 class Trainer:
     def __init__(self, 
@@ -13,16 +13,16 @@ class Trainer:
                  val_data,
                  output_num_durations,
                  device):
-
-        np.random.seed(self.config['misc']['seed'])
-        with open('config.yaml') as yaml_data:
-            self.config = yaml.safe_load(yaml_data)
-        self.device = device
-        model_config = self.config['model']
         
+        self.device = device
         self.train_data = train_data
         self.val_data = val_data
+        
+        with open('config.yaml') as yaml_data:
+            self.config = yaml.safe_load(yaml_data)
 
+        np.random.seed(self.config['seed'])
+        model_config = self.config['model']
         dropout = model_config['dropout']
         num_input_features = X_train_padded.size(2)
         self.dynamic_deephit_model = DynamicDeepHitTorch(

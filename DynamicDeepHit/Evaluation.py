@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
-from .ddh.loss import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
+from .loss import total_loss, ranking_loss,longitudinal_loss, negative_log_likelihood
 from .utils import to_float, compute_brier, compute_cindex
 
 class Evaluation:
