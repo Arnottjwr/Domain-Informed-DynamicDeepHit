@@ -54,7 +54,7 @@ loss:
 training:
   learning_rate: 0.0001
   num_durations: 128
-  num_epochs: 100
+  num_epochs: 25
   batch_size: 64
   grad_clip: 0.9034919529397347
   weight_decay: 1e-3
