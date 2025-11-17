@@ -1,0 +1,11 @@
+## TODO - make functionality to access and compare other data - have the rest of the code working 
+- Once all data is being properly saved in a consistent format, create a functionality to point to a json which the data is saved under and plot comparative plots in a new folder
+- The comparative plots will just show the same as the normal plots, just with the comparison data on top
+
+## TODO - make plotting loop for events - brier and cindex scores should be returned as dicts with events as keys
+
+## TODO - Make functionality to plot domain loss functions, both separately and as total
+
+
+## TODO - save loss and survival values in a json - figure out how to solve json problem
+- json does not seem to serialise tensors properly 
