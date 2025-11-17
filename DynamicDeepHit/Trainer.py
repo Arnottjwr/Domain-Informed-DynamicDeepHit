@@ -134,7 +134,6 @@ class Trainer:
         return self.dynamic_deephit_model
 
     def init_scheduler(self, optimiser, config):
-        print(config['threshold'], type(config['threshold']))
         return torch.optim.lr_scheduler.ReduceLROnPlateau(
                 optimiser,
                 mode = config['mode'],
