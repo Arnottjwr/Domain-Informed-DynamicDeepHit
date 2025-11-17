@@ -1,8 +1,3 @@
-## TODO - make functionality to access and compare other data - have the rest of the code working 
-## TODO - Combine train and val loss plots (Obvs)
-## TODO - make plotting loop for events - brier and cindex scores should be returned as dicts with events as keys
-## TODO - need to plot 3 base loss functions, plus 3 domain loss functions, and the total 
-## TODO - save loss and survival values in a json - figure out how to solve json problem
 import os
 from datetime import datetime
 import json
@@ -60,10 +55,10 @@ class Evaluation:
         test_total_loss = to_float(test_nll_loss) + to_float(rank_loss) + to_float(longit_loss)
         return
 
-    # def compute_brier_scores(self):
-    #     return compute_brier(self.Y_train_np, self.Y_test_np, self.D_train_np, self.D_test_np,\
-    #                             self.events, self.duration_grid_train_np, self.cif_test_np,\
-    #                                 self.eval_duration_indices,self.duration_grid_test_np)
+    def compute_brier_scores(self):
+        return compute_brier(self.Y_train_np, self.Y_test_np, self.D_train_np, self.D_test_np,\
+                                self.events, self.duration_grid_train_np, self.cif_test_np,\
+                                    self.eval_duration_indices,self.duration_grid_test_np)
 
     # def compute_cindex_scores(self):
     #     return compute_cindex(self.Y_train_np, self.Y_test_np, self.D_train_np, self.D_test_np,\
@@ -82,7 +77,7 @@ class Evaluation:
             plt.plot(total_loss, label=f'{loss_type_key} Loss')
             ax.set_xlabel('Epoch')
             ax.set_ylabel('Loss')
-            ax.set_title(f'Total {loss_type_key} Loss')
+            ax.set_title(f'Total Loss')
             ax.legend()
         plt.grid()
         plt.tight_layout()
@@ -105,33 +100,34 @@ class Evaluation:
             ax[i].set_title(f'{key} Loss')
             ax[i].grid()
             ax[i].legend()
-        
         plt.tight_layout()
         plt.savefig(f'{path}/Individual_Loss_plot.png')
         plt.close()
     
-    
-    
-    def plot_survival_metrics(self,data):
-        fig, ax = plt.subplots()
-        plt.plot(concordance_scores['death'], label='CKD')
-        plt.plot(base_cindex,'--', label='DDH')
+
+    def plot_survival_metrics(self, survival_data, path, surv_datatype):
+
+        fig, ax = plt.subplots(1,len(self.events))
+        ax = np.atleast_1d(ax)
+        for i, event in enumerate(self.events):
+            ax[i].plot(survival_data[event], label = f'Constraints: {self.config['loss']['use_constraints']}')
         ax.set_xlabel('horizon')
         ax.set_ylabel('score')
-        ax.set_title('Cindex')
+        ax.set_title(f'{surv_datatype} Scores')
         ax.grid()
         ax.legend()
         plt.tight_layout()
-        plt.savefig(f'/home/arnott/git/CKD-JA-MMSc-1/Results/cindex_eGFR/cindex_plots/Run_{run}_{j}.png')
-    
-    def save_loss_plots(self, path):
+        plt.savefig(f'{path}/{surv_datatype}_scores.png')
+        plt.close()
+
+    def save_plots(self, path, brier_scores):
         """Main Loss Plotting Function"""
         self.plot_losses({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, path)
         self.plot_total_loss({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, path)
-    
+        self.plot_survival_metrics(brier_scores, path, 'Brier Scores')
     
     def store_results(self, train_losses, val_losses, brier_scores = None, cindex_scores = None):
-        date_time = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
+        date_time = datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
         self.base_path = f'Data/ExperimentalData/{date_time}'
         plot_path = f'{self.base_path}/Plots'
         data_path = f'{self.base_path}/Data'
@@ -139,10 +135,13 @@ class Evaluation:
             os.makedirs(self.base_path)
             os.makedirs(plot_path)
             os.makedirs(data_path)
-        # Loss Plots
-        self.save_loss_plots(plot_path)
 
-        
+
+        brier_scores = self.compute_brier_scores()
+
+        # Loss Plots
+        self.save_plots(plot_path, brier_scores)
+
         # Evaluation Data
         data = {}
         data['training_loss'] = np.array(self.train_losses).tolist()
@@ -169,6 +168,4 @@ class Evaluation:
             # Plots
             self.store_results(self.train_losses, self.val_losses)
             print(f'\nData Saved under {self.base_path}')
-            
-            
             
