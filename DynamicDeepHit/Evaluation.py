@@ -29,6 +29,10 @@ class Evaluation:
         self.duration_grid_test_np = np.unique(self.Y_test_np)
         self.eval_duration_indices = [int(p * len(self.duration_grid_test_np)) for p in [0.25,0.5,0.75]]
         self.events = self.config['events']
+        if self.config['results']['comparison']:
+            with open(self.config['results']['comparison']) as yaml_data:
+                self.comparison = yaml.safe_load(yaml_data)
+        else: self.comparison = None
 
     def compute_cifs(self) -> None:
         """Compute the Cummulative Incidence Functions for each event"""
@@ -75,10 +79,15 @@ class Evaluation:
             current_loss_dict = loss_dict[loss_type_key]
             total_loss = np.sum(np.array([current_loss_dict[key] for key in model_keys]), axis = 0)
             plt.plot(total_loss, label=f'{loss_type_key} Loss')
-            ax.set_xlabel('Epoch')
-            ax.set_ylabel('Loss')
-            ax.set_title(f'Total Loss')
-            ax.legend()
+            if self.comparison:
+                current_loss_dict_compare = self.comparison[loss_type_key]
+                total_loss_compare = np.sum(np.array([current_loss_dict_compare[key] for key in model_keys]), axis = 0)
+                plt.plot(total_loss_compare, label=f'{loss_type_key} Loss Comparison')
+
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.set_title(f'Total Loss')
+        ax.legend()
         plt.grid()
         plt.tight_layout()
         plt.savefig(f'{path}/Total_{loss_type_key}_Loss_plot.png')
@@ -95,6 +104,11 @@ class Evaluation:
             for loss_type_key in loss_dict.keys():  # 'train' and 'val'
                 current_loss_dict = loss_dict[loss_type_key]
                 ax[i].plot(current_loss_dict[key], label=f'{loss_type_key} {key}')
+
+                if self.comparison:
+                    current_compare_loss_dict = self.comparison[loss_type_key]
+                    ax[i].plot(current_compare_loss_dict[key], label=f'{loss_type_key} {key} Comparison')
+      
             ax[i].set_xlabel('Epoch')
             ax[i].set_ylabel('Loss')
             ax[i].set_title(f'{key} Loss')
@@ -107,22 +121,26 @@ class Evaluation:
 
     def plot_survival_metrics(self, survival_data, path, surv_datatype):
         """Plot Survival Metrics"""
+        surv_label = ' '.join(word.capitalize() for word in surv_datatype.split('_'))
         _, ax = plt.subplots(1, len(self.events), figsize=(5*len(self.events), 4))
         ax = np.atleast_1d(ax)
         for i, event in enumerate(self.events):
             ax[i].plot(survival_data[event], label=f'Constraints: {self.config["loss"]["use_constraints"]}')
-            ax[i].set_xlabel('horizon')
-            ax[i].set_ylabel('score')
-            ax[i].set_title(f'{surv_datatype} Scores - {event}')
+            if self.comparison:
+                comparison_surv_data = self.comparison[surv_datatype]
+                ax[i].plot(comparison_surv_data[event], label=f'Comparison')
+            ax[i].set_xlabel('Horizon')
+            ax[i].set_ylabel('Score')
+            ax[i].set_title(f'{surv_label} - {event}')
             ax[i].grid()
             ax[i].legend()
-        
+
         plt.tight_layout()
-        plt.savefig(f'{path}/{surv_datatype}_scores.png')
+        plt.savefig(f'{path}/{surv_datatype}.png')
         plt.close()
 
     
-    def store_experiement_results(self, brier_scores = None, cindex_scores = None):
+    def store_experiement_results(self, brier_scores, cindex_scores):
         date_time = datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
         self.base_path = f'Data/ExperimentalData/{date_time}'
         plot_path = f'{self.base_path}/Plots'
@@ -135,10 +153,10 @@ class Evaluation:
         # Plots
         brier_scores = self.compute_brier_scores()
         cindex_scores = self.compute_cindex_scores()
-        self.plot_losses({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, plot_path)
-        self.plot_total_loss({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, plot_path)
-        self.plot_survival_metrics(brier_scores, plot_path, 'Brier Scores')
-        self.plot_survival_metrics(cindex_scores, plot_path, 'C-Index Scores')
+        self.plot_losses({'training_loss':self.train_losses, 'validation_loss':self.val_losses}, plot_path)
+        self.plot_total_loss({'training_loss':self.train_losses, 'validation_loss':self.val_losses}, plot_path)
+        self.plot_survival_metrics(brier_scores, plot_path, 'brier_scores')
+        self.plot_survival_metrics(cindex_scores, plot_path, 'cindex_score')
 
         # Save Data
         data = {}
