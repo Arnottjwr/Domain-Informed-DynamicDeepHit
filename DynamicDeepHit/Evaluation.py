@@ -30,7 +30,7 @@ class Evaluation:
         self.eval_duration_indices = [int(p * len(self.duration_grid_test_np)) for p in [0.25,0.5,0.75]]
         self.events = self.config['events']
 
-    def compute_cifs(self):
+    def compute_cifs(self) -> None:
         """Compute the Cummulative Incidence Functions for each event"""
         with torch.no_grad():
             self.yhat, self.pmf_test = self.trained_model(self.X_test_padded)
@@ -42,8 +42,8 @@ class Evaluation:
         cif_test_np = cif_test_np.tolist()
         self.cif_test_np = np.array(cif_test_np)
 
-    
-    def compute_loss_functions(self):
+
+    def compute_loss_functions(self) -> None:
         """Loss Evaluation"""
         t = torch.tensor(self.Y_test_np).long()
         e = torch.tensor(self.D_test_np).int()
@@ -60,17 +60,17 @@ class Evaluation:
                                 self.events, self.duration_grid_train_np, self.cif_test_np,\
                                     self.eval_duration_indices,self.duration_grid_test_np)
 
-    # def compute_cindex_scores(self):
-    #     return compute_cindex(self.Y_train_np, self.Y_test_np, self.D_train_np, self.D_test_np,\
-    #                         self.events, self.duration_grid_train_np, self.cif_test_np,\
-    #                             self.eval_duration_indices,self.duration_grid_test_np)
+    def compute_cindex_scores(self):
+        return compute_cindex(self.Y_train_np, self.Y_test_np, self.D_train_np, self.D_test_np,\
+                            self.events, self.duration_grid_train_np, self.cif_test_np,\
+                                self.eval_duration_indices,self.duration_grid_test_np)
         
     def plot_total_loss(self, loss_dict, path, constraints = False):
         """Plot total loss"""
         if constraints: model_keys = ['dl1', 'dl2', 'dl3']
         else: model_keys = ['nll', 'rank', 'longit']
 
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         for loss_type_key in loss_dict.keys():
             current_loss_dict = loss_dict[loss_type_key]
             total_loss = np.sum(np.array([current_loss_dict[key] for key in model_keys]), axis = 0)
@@ -90,7 +90,7 @@ class Evaluation:
         if constraints: model_keys = ['dl1', 'dl2', 'dl3']
         else: model_keys = ['nll', 'rank', 'longit']
         
-        fig, ax = plt.subplots(1, 3, figsize=(12, 7))
+        _, ax = plt.subplots(1, 3, figsize=(12, 7))
         for i, key in enumerate(model_keys):
             for loss_type_key in loss_dict.keys():  # 'train' and 'val'
                 current_loss_dict = loss_dict[loss_type_key]
@@ -106,27 +106,23 @@ class Evaluation:
     
 
     def plot_survival_metrics(self, survival_data, path, surv_datatype):
-
-        fig, ax = plt.subplots(1,len(self.events))
+        """Plot Survival Metrics"""
+        _, ax = plt.subplots(1, len(self.events), figsize=(5*len(self.events), 4))
         ax = np.atleast_1d(ax)
         for i, event in enumerate(self.events):
-            ax[i].plot(survival_data[event], label = f'Constraints: {self.config['loss']['use_constraints']}')
-        ax.set_xlabel('horizon')
-        ax.set_ylabel('score')
-        ax.set_title(f'{surv_datatype} Scores')
-        ax.grid()
-        ax.legend()
+            ax[i].plot(survival_data[event], label=f'Constraints: {self.config["loss"]["use_constraints"]}')
+            ax[i].set_xlabel('horizon')
+            ax[i].set_ylabel('score')
+            ax[i].set_title(f'{surv_datatype} Scores - {event}')
+            ax[i].grid()
+            ax[i].legend()
+        
         plt.tight_layout()
         plt.savefig(f'{path}/{surv_datatype}_scores.png')
         plt.close()
 
-    def save_plots(self, path, brier_scores):
-        """Main Loss Plotting Function"""
-        self.plot_losses({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, path)
-        self.plot_total_loss({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, path)
-        self.plot_survival_metrics(brier_scores, path, 'Brier Scores')
     
-    def store_results(self, train_losses, val_losses, brier_scores = None, cindex_scores = None):
+    def store_experiement_results(self, brier_scores = None, cindex_scores = None):
         date_time = datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
         self.base_path = f'Data/ExperimentalData/{date_time}'
         plot_path = f'{self.base_path}/Plots'
@@ -136,18 +132,24 @@ class Evaluation:
             os.makedirs(plot_path)
             os.makedirs(data_path)
 
-
+        # Plots
         brier_scores = self.compute_brier_scores()
+        cindex_scores = self.compute_cindex_scores()
+        self.plot_losses({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, plot_path)
+        self.plot_total_loss({'Train Losses':self.train_losses, 'Validation Losses':self.val_losses}, plot_path)
+        self.plot_survival_metrics(brier_scores, plot_path, 'Brier Scores')
+        self.plot_survival_metrics(cindex_scores, plot_path, 'C-Index Scores')
 
-        # Loss Plots
-        self.save_plots(plot_path, brier_scores)
-
-        # Evaluation Data
+        # Save Data
         data = {}
-        data['training_loss'] = np.array(self.train_losses).tolist()
-        data['validation_loss'] = np.array(self.val_losses).tolist()
-        # with open(f'{data_path}/experiment_data.json', 'w') as f:
-        #     json.dump(data, f, indent=4)
+        data['training_loss'] = self.train_losses
+        data['validation_loss'] = self.val_losses
+        data['brier_scores'] = brier_scores
+        data['cindex_score'] = cindex_scores
+
+
+        with open(f'{data_path}/experiment_data.json', 'w') as f:
+            json.dump(data, f, indent=4)
     
         with open(f'{data_path}/experiment_config.json', 'w') as f:
             json.dump(self.config, f, indent=4)
@@ -158,14 +160,8 @@ class Evaluation:
 
         # Compute Test Metrics
         self.compute_cifs()
-        # brier_scores = self.compute_brier_scores()
-        # cindex_scores = self.compute_cindex_scores()
-        brier_scores = 0
-        cindex_scores = 0
-        
+
         # Save Results
-        if self.config['results']['save_results']:
-            # Plots
-            self.store_results(self.train_losses, self.val_losses)
-            print(f'\nData Saved under {self.base_path}')
-            
+        self.store_experiement_results(self.train_losses, self.val_losses)
+        print(f'\nData Saved under {self.base_path}')
+        
