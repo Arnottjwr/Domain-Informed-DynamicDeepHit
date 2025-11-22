@@ -43,7 +43,7 @@ class Trainer:
         self.train_losses = {'nll':[],'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
         self.val_losses = {'nll':[], 'rank':[],'longit':[], "dl1": [],"dl2": [], "dl3": []}
 
-    def train_and_validate(self):
+    def train_and_validate(self) -> DynamicDeepHitTorch:
         """Train the model"""
         training_config = self.config['training']
         batch_size = training_config['batch_size']
@@ -94,7 +94,7 @@ class Trainer:
 
                 for k in tr_log: 
                     tr_log[k] /= tr_n
-                    self.train_losses[k].append(tr_log[k])
+                    self.train_losses[k].append(tr_log[k].item())
 
 
                 # ---Validation---
@@ -111,7 +111,7 @@ class Trainer:
 
                 for k in va_log: 
                     va_log[k] /= va_n
-                    self.val_losses[k].append(va_log[k])
+                    self.val_losses[k].append(va_log[k].item())
 
         
                 # Use ONLY NLL for early stopping / LR scheduling
