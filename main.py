@@ -8,7 +8,6 @@ if __name__ == '__main__':
     print('|<------------Starting Program------------>|')
     print('Loading Data...')
     datahandler = DataPreprocessor()
-    device = datahandler.device
     train_data, X_train_padded = datahandler.return_train_data()
     val_data, _ = datahandler.return_val_data()
     output_num_durations = datahandler.output_num_durations
@@ -17,7 +16,7 @@ if __name__ == '__main__':
     
     # Load and train the model
     print('\n|<------------Training Model------------>|')
-    trainer = Trainer(train_data, X_train_padded, val_data, output_num_durations, device)
+    trainer = Trainer(train_data, X_train_padded, val_data, output_num_durations)
     model = trainer.train_and_validate()
     print('\n|<------------Training Complete------------>|')
 

@@ -12,9 +12,10 @@ class Trainer:
                  X_train_padded,
                  val_data,
                  output_num_durations,
-                 device):
+                 ):
         
-        self.device = device
+        self.device = torch.device(self.config['misc']['cuda'] if torch.cuda.is_available() else 'cpu')
+
         self.train_data = train_data
         self.val_data = val_data
 
