@@ -5,6 +5,7 @@ This file is by Vincent Jeanselme and was downloaded from:
 import torch
 import torch.nn.functional as F
 from DynamicDeepHit.ddh_torch import DynamicDeepHitTorch
+from torch import Tensor
 
 def negative_log_likelihood(outcomes, cif, t, e):
     """
@@ -212,7 +213,7 @@ def domain_loss_4(longitudinal_prediction, x,option = 1):
     return torch.tensor(0.0, dtype=torch.float, device=device)
 
 def total_loss(
-    model:DynamicDeepHitTorch, x, t, e, training_params:dict, eval_flag: bool = False) -> float | dict:
+    model:DynamicDeepHitTorch, x, t, e, training_params:dict, eval_flag: bool = False) -> Tensor | dict[str, Tensor]:
     """
     Returns (loss_scalar, parts_dict) if compute_parts else (loss_scalar, None).
     'loss_scalar' is:
