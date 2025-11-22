@@ -12,7 +12,7 @@ def generate_patient_data(patient_id, num_measurements):
     subject_id = 10000000 + patient_id  # 8-digit ID
     gender = random.choice(['M', 'F'])
     initial_age = random.randint(25, 85)
-    event = random.choice(['alive', 'alive', 'alive', 'dead'])  # 75% alive, 25% dead
+    event = random.choice(['alive', 'alive', 'alive', 'alive', 'dead', 'dialysis'])  # 75% alive, 25% dead
 
     # Generate first measurement date (random date in past 5 years)
     days_back = random.randint(365, 365 * 5)
