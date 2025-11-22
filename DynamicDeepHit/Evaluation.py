@@ -10,7 +10,7 @@ from .loss import ranking_loss,longitudinal_loss, negative_log_likelihood
 from .utils import to_float, compute_brier, compute_cindex
 
 class Evaluation:
-     
+    """Evaluation class for model performance analysis and visualization."""
     def __init__(self,
                  trained_model,
                  test_data,
@@ -21,18 +21,37 @@ class Evaluation:
         with open('config.yaml') as yaml_data:
             self.config = yaml.safe_load(yaml_data)
 
+        # Model and training data
         self.trained_model = trained_model
         self.duration_grid_train_np = duration_grid_train_np
         self.train_losses = train_losses
         self.val_losses = val_losses
-        self.X_test_padded, self.Y_train_np, self.D_train_np, self.Y_test_np, self.D_test_np = test_data
+
+        # Unpack test data with clearer names
+        (self.X_test_padded, 
+         self.Y_train_np, 
+         self.D_train_np, 
+         self.Y_test_np, 
+         self.D_test_np) = test_data        
+        
+        # Compute test grid and evaluation points
         self.duration_grid_test_np = np.unique(self.Y_test_np)
-        self.eval_duration_indices = [int(p * len(self.duration_grid_test_np)) for p in [0.25,0.5,0.75]]
+        self.eval_duration_indices = [
+            int(p * len(self.duration_grid_test_np)) 
+            for p in [0.25, 0.5, 0.75]
+        ]
+
         self.events = self.config['events']
         if self.config['results']['comparison']:
             with open(self.config['results']['comparison']) as yaml_data:
                 self.comparison = yaml.safe_load(yaml_data)
         else: self.comparison = None
+
+        # Initialize CIF placeholders
+        self.cif_test_np = None
+        self.yhat = None
+        self.pmf_test = None
+
 
     def compute_cifs(self) -> None:
         """Compute the Cummulative Incidence Functions for each event"""
