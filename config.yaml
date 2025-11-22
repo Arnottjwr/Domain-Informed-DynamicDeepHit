@@ -1,6 +1,7 @@
 ---
 events:
   - death
+  - dialysis
 num_durations: 256
 cuda: cuda:3
 seed: 1111 # null for random seed
@@ -13,7 +14,7 @@ load_data:
     - eGFR
     - UPCR
     - ACUR
-  path: Data/TrainingData/SyntheticData/dummy_timeseries_data.csv
+  path: Data/TrainingData/SyntheticData/dummy_timeseries_data_competing.csv
 
 model:
   layers_for_attention:
