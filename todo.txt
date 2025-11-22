@@ -5,7 +5,3 @@
 ## TODO - make plotting loop for events - brier and cindex scores should be returned as dicts with events as keys
 
 ## TODO - Make functionality to plot domain loss functions, both separately and as total
-
-
-## TODO - save loss and survival values in a json - figure out how to solve json problem
-- json does not seem to serialise tensors properly 
