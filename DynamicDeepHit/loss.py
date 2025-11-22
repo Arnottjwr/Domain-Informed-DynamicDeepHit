@@ -255,9 +255,9 @@ def total_loss(
             "nll" : nll_loss, 
             "rank" : rank_loss,
             "longit" : longit_loss,
-            "dl1": 0,
-            "dl2": 0,
-            "dl3": 0,
+            "dl1": torch.tensor(0.),
+            "dl2": torch.tensor(0.),
+            "dl3": torch.tensor(0.),
             }
 
     dl1, _ = domain_loss_1(longitudinal_prediction, x)
