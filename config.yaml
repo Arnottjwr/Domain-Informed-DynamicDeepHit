@@ -70,8 +70,7 @@ lr_scheduler:
 
 results:
   plots: true
-  save_results: true
-  comparison: \Data\ComparisonData\placeholder.txt # WIP: dict of paths to comparable data
+  comparison: Data/ComparisonData/experiment_data.json # null for no comparison
 
 experiments:
   
