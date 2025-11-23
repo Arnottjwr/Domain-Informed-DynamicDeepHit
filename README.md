@@ -58,6 +58,12 @@ Model settings and experimental parameters are configured in `config.yaml` in th
 - **`dropout`**: Dropout probability
 
 
+## Running the Model
+Once you have configured the model appropriately, to start the model, run
+```bash
+python3 .\main.py
+```
+Once the model has been trained, the training data and the survival metrics as well as relevant plots will be saved in `Data/ExperimentalData/<Current Data-Time>`. 
 ## To Do
 
 - Add functionality to plot domain loss functions (separately and combined)
