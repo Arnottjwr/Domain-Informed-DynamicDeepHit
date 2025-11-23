@@ -1,5 +1,0 @@
-## TODO - make functionality to access and compare other data - have the rest of the code working 
-- Once all data is being properly saved in a consistent format, create a functionality to point to a json which the data is saved under and plot comparative plots in a new folder
-- The comparative plots will just show the same as the normal plots, just with the comparison data on top
-
-## TODO - Make functionality to plot domain loss functions, both separately and as total
