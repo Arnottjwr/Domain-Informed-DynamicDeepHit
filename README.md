@@ -5,7 +5,7 @@ This repository contains the implementation of Domain-Informed Dynamic DeepHit f
 
 ## Overview
 
-D3-CKD is a machine learning model trained on time-series electronic health records to predict CKD-related outcomes. The model integrates medical domain knowledge to improve survival predictions. For full details, see [link to paper/documentation].
+D3-CKD is a machine learning model trained on time-series electronic health records to predict CKD-related outcomes. The model integrates medical domain knowledge to improve survival predictions. For full details, see here .
 
 ## Background
 
