@@ -138,7 +138,7 @@ def compute_brier(Y_train_np, Y_test_np, D_train_np, D_test_np,\
 
 def compute_cindex(Y_train_np, Y_test_np, D_train_np, D_test_np,\
                    events, duration_grid_train_np, cif_test_np,\
-                    eval_duration_indices,duration_grid_test_np):
+                    eval_duration_indices, duration_grid_test_np):
     labels_train_sksurv = Surv.from_arrays(1*(D_train_np >= 1), Y_train_np)
     concordance_scores = {event:[] for event in events }
 

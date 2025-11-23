@@ -144,10 +144,10 @@ class Evaluation:
         _, ax = plt.subplots(1, len(self.events), figsize=(5*len(self.events), 4))
         ax = np.atleast_1d(ax)
         for i, event in enumerate(self.events):
-            ax[i].plot(survival_data[event], label=f'Constraints: {self.config["loss"]["use_constraints"]}')
+            ax[i].plot(survival_data[event], label=f'Constraints: {self.config["loss"]["use_constraints"]}', marker = 'o')
             if self.comparison:
                 comparison_surv_data = self.comparison[surv_datatype]
-                ax[i].plot(comparison_surv_data[event], label=f'Comparison')
+                ax[i].plot(comparison_surv_data[event], label=f'Comparison', marker = 'o')
             ax[i].set_xlabel('Horizon')
             ax[i].set_ylabel('Score')
             ax[i].set_title(f'{surv_label} - {event}')
